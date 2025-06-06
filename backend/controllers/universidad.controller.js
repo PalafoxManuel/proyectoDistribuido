@@ -68,3 +68,47 @@ exports.showUabcs = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// Buscar universidades por nombre con paginación
+exports.getUniversidadesPorNombre = async (req, res) => {
+  try {
+    const nombre = decodeURIComponent(req.params.nombre || '').trim();
+    const page = parseInt(req.params.page) || 1;
+    const perPage = 10;
+
+    if (!nombre) {
+      return res.status(400).json({ error: 'Falta nombre de universidad' });
+    }
+
+    const universidadesColl = col('universidades');
+    const query = { nombre_institucion: { $regex: new RegExp(nombre, 'i') } };
+
+    const total = await universidadesColl.countDocuments(query);
+    const universidades = await universidadesColl
+      .find(query)
+      .skip((page - 1) * perPage)
+      .limit(perPage)
+      .toArray();
+
+    const totalPages = Math.ceil(total / perPage);
+
+    res.json({ universidades, pages: totalPages });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Universidades visibles por defecto
+exports.getUniversidadesVisibles = async (req, res) => {
+  try {
+    const universidadesColl = col('universidades');
+    const universidades = await universidadesColl
+      .find({}, { projection: { _id: 0, nombre_institucion: 1, imagen: 1 } })
+      .limit(12)
+      .toArray();
+
+    res.json({ universidades });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

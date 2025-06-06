@@ -1,7 +1,5 @@
-import 'bootstrap/dist/css/bootstrap.min.css';
-import 'bootstrap-icons/font/bootstrap-icons.css';
-import './App.css';
-
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Search from './components/Search';
 import InformacionGeneral from './components/InformacionGeneral';
 import FinanciamientoInstitucional from './components/FinanciamientoInstitucional';
 import MatriculaGeneral from './components/MatriculaGeneral';
@@ -11,7 +9,7 @@ import MatriculaResumen from './components/MatriculaResumen';
 import FortalecimientoAcademico from './components/FortalecimientoAcademico';
 import PoblacionDocenteAdmin from './components/PoblacionDocenteAdmin';
 
-function App() {
+function UniversidadDetalle() {
   return (
     <div style={{ backgroundColor: '#D6DBDF', minHeight: '100vh' }}>
       <header data-bs-theme="dark">
@@ -73,6 +71,17 @@ function App() {
       </div>
 
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<Search />} />
+        <Route path="/universidad/:nombre" element={<UniversidadDetalle />} />
+      </Routes>
+    </Router>
   );
 }
 
