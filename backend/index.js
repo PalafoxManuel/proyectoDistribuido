@@ -29,10 +29,10 @@ app.use(morgan('dev'));              // Log de peticiones
 
 // Ruta de salud sencilla
 
-app.use('/api', require('./routes/universidad.routes'));
+app.use('/', require('./routes/universidad.routes'));
 
 // Rutas de la API (versión 1)
-app.use('/api', require('./routes/data.routes'));
+app.use('/', require('./routes/data.routes'));
 
 //––––––––––––––––  Conexión Mongo  ––––––––––––––––––––
 mongoose.connect(URI, {

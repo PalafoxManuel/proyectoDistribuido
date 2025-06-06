@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import InformacionGeneral from './components/InformacionGeneral';
 
 function InformacionGeneral() {
   const [data, setData] = useState(null);
