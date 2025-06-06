@@ -27,8 +27,6 @@ const app = express();
 app.use(express.json());             // Body parser para JSON
 app.use(morgan('dev'));              // Log de peticiones
 
-// Ruta de salud sencilla
-
 app.use('/', require('./routes/universidad.routes'));
 
 // Rutas de la API (versión 1)
