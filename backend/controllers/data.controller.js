@@ -364,10 +364,16 @@ exports.getPoblacionDocente = async (req, res) => {
   try {
     const nombre = decodeURIComponent(req.params.universidad);
     const doc = await col('poblacion').findOne({ institucion: nombre }, { projection:{ _id:0 } });
-    if (!doc) return res.status(404).json({ datos:[], mensaje:'No se encontraron registros', codigo:404 });
 
-    res.json({ data: doc, mensaje:'Datos obtenidos correctamente.', codigo:200 });
-  } catch (e) { res.status(500).json({ error:e.message }); }
+    if (!doc) {
+      return res.status(404).json({ data: [], mensaje: 'No se encontraron registros', codigo: 404 });
+    }
+
+    // Enviar como array aunque sea un solo objeto
+    res.json({ data: [doc], mensaje: 'Datos obtenidos correctamente.', codigo: 200 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 };
 
 // ------------------------------------------------------------------

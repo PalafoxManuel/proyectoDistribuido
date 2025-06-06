@@ -8,14 +8,22 @@ function MatriculaGeneral() {
     const segments = path.split('/');
     const nombreUniversidad = decodeURIComponent(segments[segments.length - 1]);
 
-    fetch(`/universidad/matricula-general-EMS/${nombreUniversidad}`)
+    fetch(`/matricula/${nombreUniversidad}`)
       .then((response) => {
         if (!response.ok) throw new Error('Error en la solicitud');
         return response.json();
       })
-      .then((info) => setData(info))
+      .then((info) => {
+        // Aquí accedemos al objeto retornado
+        if (info && info.tablasEMSyLugarEntidad) {
+          setData([info.tablasEMSyLugarEntidad]); // lo pasamos como array para mapear
+        } else {
+          setData([]);
+        }
+      })
       .catch((err) => console.error('Error al cargar datos:', err));
   }, []);
+
 
   if (!data || data.length === 0) return <p className="text-center">Cargando matrícula general...</p>;
 

@@ -7,6 +7,9 @@ router.get('/busqueda/:nombre', u.getUniversidadesPorNombre);
 router.get('/busqueda/:nombre/:page', u.getUniversidadesPorNombre);
 
 // Universidades visibles sin filtro
+//router.get('/busqueda-visibles', data.getUniversidadesPorNombre);
+
+//PA LAS VISIBLES NOMAS LA UABCS LOL
 router.get('/busqueda-visibles', data.getUniversidadesVisibles);
 
 // Otros endpoints que ya tengas

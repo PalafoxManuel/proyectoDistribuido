@@ -8,7 +8,7 @@ function FinanciamientoInstitucional() {
     const segments = path.split('/');
     const nombreUniversidad = decodeURIComponent(segments[segments.length - 1]);
 
-    fetch(`/universidad/financiamiento/${nombreUniversidad}`)
+    fetch(`/finanzas/${nombreUniversidad}`)
       .then((response) => {
         if (!response.ok) throw new Error('Error en la solicitud');
         return response.json();

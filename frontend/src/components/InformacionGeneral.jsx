@@ -9,25 +9,30 @@ function InformacionGeneral() {
     const segments = path.split('/');
     const nombreUniversidad = decodeURIComponent(segments[segments.length - 1]);
 
-    fetch(`universidad/${encodeURIComponent(nombreUniversidad)}`)
+    fetch(`/universidad/${encodeURIComponent(nombreUniversidad)}`)
       .then((response) => {
         if (!response.ok) throw new Error("Error en la solicitud");
         return response.json();
       })
       .then((res) => {
         setData(res);
-        if (res.imagen) {
+        if (res?.imagen) {
           setLogoSrc(`/img/logos/${res.imagen}`);
         }
       })
-      .catch((err) => console.error(err));
+      .catch((err) => console.error("Error al cargar datos de la universidad:", err));
   }, []);
 
-  const formatDate = (fecha) => {
-    if (!fecha || fecha === "No disponible") return "No disponible";
-    const [year, month, day] = fecha.split("-");
-    return `${day}/${month}/${year}`;
-  };
+
+  function formatDate(dateString) {
+    const fecha = new Date(dateString);
+    return fecha.toLocaleDateString('es-MX', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    });
+  }
+
 
   if (!data) return <p className="text-center">Cargando información...</p>;
 

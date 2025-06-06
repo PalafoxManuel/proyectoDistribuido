@@ -8,14 +8,18 @@ function FortalecimientoAcademico() {
     const segments = path.split('/');
     const nombreUniversidad = decodeURIComponent(segments[segments.length - 1]);
 
-    fetch(`/universidad/snii/${nombreUniversidad}`)
+    fetch(`/ranking-snii/${nombreUniversidad}`)
       .then((response) => {
         if (!response.ok) throw new Error('Error en la solicitud');
         return response.json();
       })
-      .then((info) => setData(info))
+      .then((info) => {
+        // console.log('Respuesta de fortalecimiento:', info);
+        setData(info.data || []);
+      })
       .catch((err) => console.error('Error al cargar datos:', err));
   }, []);
+
 
   if (!data || data.length === 0) return <p className="text-center">Cargando fortalecimiento académico...</p>;
 

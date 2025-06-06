@@ -8,7 +8,7 @@ function OfertaEducativaResumen() {
     const segments = path.split('/');
     const nombreUniversidad = decodeURIComponent(segments[segments.length - 1]);
 
-    fetch(`/universidad/historico-campos/${nombreUniversidad}`)
+    fetch(`/historico/${nombreUniversidad}`)
       .then((response) => {
         if (!response.ok) throw new Error('Error en la solicitud');
         return response.json();

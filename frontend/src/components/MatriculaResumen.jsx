@@ -8,14 +8,27 @@ function MatriculaResumen() {
     const segments = path.split('/');
     const nombreUniversidad = decodeURIComponent(segments[segments.length - 1]);
 
-    fetch(`/universidad/ems-dato/${nombreUniversidad}`)
+    fetch(`/ems/${encodeURIComponent(nombreUniversidad)}`)
       .then((response) => {
         if (!response.ok) throw new Error('Error en la solicitud');
         return response.json();
       })
-      .then((info) => setData(info))
-      .catch((err) => console.error('Error al cargar datos:', err));
+      .then((info) => {
+        if (info && Array.isArray(info.data)) {
+          setData(info.data);
+        } else if (info && typeof info.data === 'object') {
+          setData([info.data]); // lo convertimos en arreglo
+        } else {
+          setData([]);
+        }
+      })
+      .catch((err) => {
+        console.error('Error al cargar datos:', err);
+        setData(null);
+      });
   }, []);
+
+
 
   if (!data || data.length === 0) return <p className="text-center">Cargando resumen de matrícula EMS...</p>;
 

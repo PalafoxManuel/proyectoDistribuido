@@ -8,12 +8,12 @@ function PoblacionDocenteAdmin() {
     const segments = path.split('/');
     const nombreUniversidad = decodeURIComponent(segments[segments.length - 1]);
 
-    fetch(`/universidad/poblacion/${nombreUniversidad}`)
+    fetch(`/poblacion/${nombreUniversidad}`)
       .then((response) => {
         if (!response.ok) throw new Error('Error en la solicitud');
         return response.json();
       })
-      .then((info) => setData(info))
+      .then((info) => setData(info.data))
       .catch((err) => console.error('Error al cargar datos:', err));
   }, []);
 
