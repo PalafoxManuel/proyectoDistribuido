@@ -5,6 +5,7 @@
 //
 
 const { col } = require('../lib/mongo');      // helper: colección nativa
+const buildReg  = require('../lib/diacriticRegex');
 
 /** GET /api/uabcs?universidad=UNAM  */
 exports.showUabcs = async (req, res) => {
@@ -69,46 +70,58 @@ exports.showUabcs = async (req, res) => {
   }
 };
 
-// Buscar universidades por nombre con paginación
+// ──────────────────────────────────────────────────────────────
+//  Buscar universidades por nombre (con /busqueda/:nombre/:page?)
+// ──────────────────────────────────────────────────────────────
 exports.getUniversidadesPorNombre = async (req, res) => {
   try {
-    const nombre = decodeURIComponent(req.params.nombre || '').trim();
-    const page = parseInt(req.params.page) || 1;
-    const perPage = 10;
+    // nombre puede venir como parámetro de ruta ó querystring (?nombre=)
+    const q     = decodeURIComponent(
+                    req.params.nombre ?? req.query.nombre ?? req.query.q ?? ''
+                  ).trim();
+    const page  = +(req.params.page ?? req.query.page ?? 1);
+    const per   = 10;
 
-    if (!nombre) {
-      return res.status(400).json({ error: 'Falta nombre de universidad' });
-    }
+    if (!q) return res.status(400).json({ error: 'Falta el término de búsqueda' });
+
+    // Regex que ignora tildes y mayúsculas
+    const regex = buildReg(q);
+    const cond  = { nombre_institucion: { $regex: regex } };
 
     const universidadesColl = col('universidades');
-    const query = { nombre_institucion: { $regex: new RegExp(nombre, 'i') } };
 
-    const total = await universidadesColl.countDocuments(query);
+    const total = await universidadesColl.countDocuments(cond);
     const universidades = await universidadesColl
-      .find(query)
-      .skip((page - 1) * perPage)
-      .limit(perPage)
+      .find(cond)
+      .project({ _id: 0, id: 1, nombre_institucion: 1, imagen: 1 })
+      .skip((page - 1) * per)
+      .limit(per)
       .toArray();
 
-    const totalPages = Math.ceil(total / perPage);
-
-    res.json({ universidades, pages: totalPages });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.json({
+      universidades,
+      total,
+      page,
+      pages: Math.max(1, Math.ceil(total / per))
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
   }
 };
 
-// Universidades visibles por defecto
-exports.getUniversidadesVisibles = async (req, res) => {
+// ──────────────────────────────────────────────────────────────
+//  Universidades visibles  ( /busqueda-visibles )
+// ──────────────────────────────────────────────────────────────
+exports.getUniversidadesVisibles = async (_, res) => {
   try {
-    const universidadesColl = col('universidades');
-    const universidades = await universidadesColl
-      .find({}, { projection: { _id: 0, nombre_institucion: 1, imagen: 1 } })
-      .limit(12)
+    const unis = await col('universidades')
+      .find({ visible: 1 })
+      .project({ _id: 0, id: 1, nombre_institucion: 1, imagen: 1 })
       .toArray();
 
-    res.json({ universidades });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.json({ universidades: unis, total: unis.length, pages: 1 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 };

@@ -1,59 +1,73 @@
+// src/components/Search.jsx
 import { useState, useEffect } from 'react';
 import UniversidadCard from './UniversidadCard';
 
+/*  URL base del backend.  Se lee de .env →  REACT_APP_API_URL=http://localhost:3000  */
+const API = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+
 function Search() {
-  const [searchingUniversidad, setSearchingUniversidad] = useState('');
-  const [universidades, setUniversidades] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [showLoadMore, setShowLoadMore] = useState(false);
+  const [query,          setQuery]          = useState('');
+  const [universidades,  setUniversidades]  = useState([]);
+  const [loading,        setLoading]        = useState(false);
+  const [page,           setPage]           = useState(1);
+  const [pages,          setPages]          = useState(1);
 
-  const fetchUniversidades = (query = '', page = 1, append = false) => {
-    setLoading(true);
-    const fetchUrl = query.trim() === '' ? `/busqueda-visibles` : `/busqueda/${encodeURIComponent(query.trim())}/${page}`;
+  /* ────────────────────────────────────────────────────────── */
+  const fetchUniversidades = async (texto = '', pageNum = 1, append = false) => {
+    try {
+      setLoading(true);
 
-    if (!append) setUniversidades([]); // Reset if not append
+      /* URL absoluta (sin proxy) */
+      const url = texto.trim() === ''
+        ? `${API}/busqueda-visibles`
+        : `${API}/busqueda/${encodeURIComponent(texto.trim())}/${pageNum}`;
 
-    fetch(fetchUrl)
-      .then((response) => response.json())
-      .then((data) => {
-        if (data && data.universidades) {
-          setUniversidades((prev) => (append ? [...prev, ...data.universidades] : data.universidades));
-          setTotalPages(data.pages || totalPages); // Update totalPages if present in response
-          setShowLoadMore(page < totalPages);
-        }
-      })
-      .catch((error) => console.error('Error en la solicitud Fetch:', error))
-      .finally(() => setLoading(false));
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);           // no sigas si no es 2xx
+
+      const data = await res.json();
+      if (!data || !data.universidades) return;
+
+      setUniversidades(prev =>
+        append ? [...prev, ...data.universidades] : data.universidades
+      );
+
+      const totalPages = data.pages ?? 1;
+      setPages(totalPages);
+    } catch (err) {
+      console.error('Error en la solicitud Fetch:', err.message);
+    } finally {
+      setLoading(false);
+    }
   };
+  /* ────────────────────────────────────────────────────────── */
 
+  /* Al montar → carga visibles */
   useEffect(() => {
-    fetchUniversidades(); // Fetch universidades visibles on load
+    fetchUniversidades();
   }, []);
 
+  /* Búsqueda con debounce */
   useEffect(() => {
-    const delayDebounce = setTimeout(() => {
-      setCurrentPage(1);
-      fetchUniversidades(searchingUniversidad, 1);
-    }, 400); // Espera 400ms después de dejar de escribir
+    const id = setTimeout(() => {
+      setPage(1);
+      fetchUniversidades(query, 1);
+    }, 400);
+    return () => clearTimeout(id);
+  }, [query]);
 
-    return () => clearTimeout(delayDebounce); // Limpia timeout si el usuario sigue escribiendo
-  }, [searchingUniversidad]);
-
-
-  const handleSearch = () => {
-    setCurrentPage(1); // Reset to first page
-    fetchUniversidades(searchingUniversidad, 1);
+  /* Handlers ------------------------------------------------- */
+  const handleSearch    = () => { setPage(1); fetchUniversidades(query, 1); };
+  const handleLoadMore  = () => {
+    const next = page + 1;
+    setPage(next);
+    fetchUniversidades(query, next, true);
   };
 
-  const handleLoadMore = () => {
-    setCurrentPage((prev) => prev + 1);
-    fetchUniversidades(searchingUniversidad, currentPage + 1, true); // Fetch next page and append
-  };
-
+  /* Render --------------------------------------------------- */
   return (
     <div style={{ backgroundColor: '#D6DBDF', minHeight: '100vh' }}>
+      {/* barra superior */}
       <header data-bs-theme="dark">
         <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
           <div className="container">
@@ -65,51 +79,54 @@ function Search() {
         </nav>
       </header>
 
+      {/* buscador */}
       <div className="container mt-5">
         <div className="row justify-content-center">
           <div className="col-md-12">
             <h2><b>Panel de búsqueda</b></h2>
             <div className="input-group">
               <input
-                type="text"
-                id="searchBar"
                 className="form-control"
                 placeholder="Búsqueda..."
-                aria-label="Buscar universidad"
-                value={searchingUniversidad}
-                onChange={(e) => setSearchingUniversidad(e.target.value)}
+                value={query}
+                onChange={e => setQuery(e.target.value)}
               />
-              <button className="btn btn-dark" id="searchButton" type="button" onClick={handleSearch}>
-                <i className="bi bi-search"></i>
+              <button className="btn btn-dark" onClick={handleSearch}>
+                <i className="bi bi-search" />
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      <div id="loadingSpinner" className={`d-${loading ? 'block' : 'none'} text-center my-5`}>
-        <div className="spinner-border text-dark" role="status" style={{ width: '3rem', height: '3rem' }}>
-          <span className="visually-hidden">Cargando...</span>
+      {/* spinner */}
+      {loading && (
+        <div className="text-center my-5">
+          <div className="spinner-border text-dark" style={{ width:'3rem', height:'3rem' }} />
         </div>
-      </div>
+      )}
 
+      {/* resultados */}
       <div className="container mt-4">
-        <div className="row" id="universidadesContainer">
-          {universidades.length > 0 ? (
-            universidades.map((universidad, index) => (
-              <UniversidadCard key={index} universidad={universidad} />
-            ))
-          ) : (
-            <p className="text-center">No se encontraron resultados para "{searchingUniversidad}".</p>
-          )}
+        <div className="row">
+          {universidades.map((u, i) => (
+            <UniversidadCard key={i} universidad={u} />
+          ))}
         </div>
-        {/* <div className="text-center mt-3">
-          {showLoadMore && (
-            <button id="loadMoreButton" className="btn btn-dark btn-block d-none my-4" onClick={handleLoadMore}>
+
+        {!loading && universidades.length === 0 && (
+          <p className="text-center">
+            No se encontraron resultados para "{query}".
+          </p>
+        )}
+
+        {page < pages && (
+          <div className="text-center mt-3">
+            <button className="btn btn-dark" onClick={handleLoadMore}>
               Cargar más
             </button>
-          )}
-        </div> */}
+          </div>
+        )}
       </div>
     </div>
   );

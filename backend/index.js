@@ -11,6 +11,7 @@ require('dotenv').config();          // Carga PORT y MONGO_URI
 const express   = require('express');
 const mongoose  = require('mongoose');
 const morgan    = require('morgan'); // (opcional) logs HTTP legibles
+const cors     = require('cors');
 
 //––––––––––––––––  Configuración básica  ––––––––––––––
 const PORT = process.env.PORT      || 3000;
@@ -24,7 +25,8 @@ if (!URI) {
 //––––––––––––––––  Arrancar Express  ––––––––––––––––––
 const app = express();
 
-app.use(express.json());             // Body parser para JSON
+app.use(cors({ origin: 'http://localhost:3001' })); // ↖️  permite al front
+app.use(express.json());
 app.use(morgan('dev'));              // Log de peticiones
 
 app.use('/', require('./routes/universidad.routes'));
