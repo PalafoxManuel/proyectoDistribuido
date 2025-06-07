@@ -341,36 +341,42 @@ exports.getUniversidad = async (req, res) => {
 // ------------------------------------------------------------------
 exports.getMatriculaGeneralEMS = async (req, res) => {
   try {
-    const univ  = decodeURIComponent(req.params.universidad);
-    const mat2  = col('mat2');
+    const univ = decodeURIComponent(req.params.universidad);
+    const mat2 = col('mat2');
 
-    /* 1 ▸ periodo más reciente de esa institución */
-    const ultimo = await mat2
+    // 1) obtenemos el periodo más reciente
+    const periodoArr = await mat2
       .find({ NOMBRE_INSTITUCION: univ })
+      .project({ PERIODO: 1, _id: 0 })
       .sort({ PERIODO: -1 })
       .limit(1)
-      .project({ PERIODO: 1, _id: 0 })
       .toArray();
 
-    if (!ultimo.length) {
-      return res.status(404).json({ error: 'Universidad sin datos de matrícula' });
+    if (!periodoArr.length) {
+      return res
+        .status(404)
+        .json({ error: 'Universidad sin datos de matrícula' });
     }
+    const periodo = periodoArr[0].PERIODO;
 
-    const periodo = ultimo[0].PERIODO;
+    // 2) fila EMS + ranking en la entidad
+    const filas = await mat2
+      .find({ NOMBRE_INSTITUCION: univ, PERIODO: periodo })
+      .project({ _id: 0 })         // trae todo excepto _id
+      .sort({ MAT_POS: -1 })       // ordena por MAT_POS descendente
+      .limit(1)
+      .toArray();
 
-    /* 2 ▸ fila con ranking EMS y entidad federativa */
-    const tablasEMSyLugarEntidad = await mat2.findOne(
-      { NOMBRE_INSTITUCION: univ, PERIODO: periodo },
-      { sort: { MAT_POS: -1 }, projection: { _id: 0 } }
-    );
-
-    if (!tablasEMSyLugarEntidad) {
-      return res.status(404).json({ error: 'No hay filas EMS para el periodo más reciente' });
+    if (!filas.length) {
+      return res
+        .status(404)
+        .json({ error: 'No hay datos EMS en el periodo más reciente' });
     }
+    const tablasEMSyLugarEntidad = filas[0];
 
     const entidad = tablasEMSyLugarEntidad.ENTIDAD_FEDERATIVA;
 
-    /* 3 ▸ Top-5 licenciatura/TSU, posgrado y total en la misma entidad */
+    // 3) Top-5 TSU/Lic, Posgrado y Total en esa misma entidad
     const datosTablaTSUyLic = await mat2
       .find({ ENTIDAD_FEDERATIVA: entidad })
       .project({ _id: 0, RANK_LIC: 1, NOMBRE_INSTITUCION: 1, MAT_LIC: 1 })
@@ -392,17 +398,15 @@ exports.getMatriculaGeneralEMS = async (req, res) => {
       .limit(5)
       .toArray();
 
-    /* 4 ▸ respuesta uniforme */
-    res.json({
-      data: {
-        tablasEMSyLugarEntidad,
-        datosTablaTSUyLic,
-        datosTablaPos,
-        datosTablaEduSup
-      }
+    // 4) devolvemos todo _sin_ wrapper “data”
+    return res.json({
+      tablasEMSyLugarEntidad,
+      datosTablaTSUyLic,
+      datosTablaPos,
+      datosTablaEduSup
     });
-
   } catch (e) {
+    console.error(e);
     res.status(500).json({ error: e.message });
   }
 };
@@ -587,26 +591,27 @@ exports.getPoblacionDocente = async (req, res) => {
 // ------------------------------------------------------------------
 exports.getDatosEms = async (req, res) => {
   try {
-    const nombre = decodeURIComponent(req.params.universidad ?? '').trim();
-    if (!nombre) {
-      return res.status(400).json({ error: 'Debe proveer el nombre de la universidad.' });
-    }
-
-    const doc = await col('EMS').findOne(
-      { nombre_institucion: nombre },
-      { projection: { _id: 0 } }
-    );
+    const nombre = decodeURIComponent(req.params.universidad);
+    // usa el nombre real de la colección:
+    const doc = await col('ems')
+      .findOne({ nombre_institucion: nombre }, { projection:{ _id:0 } });
 
     if (!doc) {
-      return res
-        .status(404)
-        .json({ error: 'No se encontraron registros EMS para la institución indicada.' });
+      return res.status(404).json({
+        data:   [],
+        mensaje:'No se encontraron registros',
+        codigo: 404
+      });
     }
 
-    // Devolvemos los datos de la institución dentro de "data"
-    return res.json({ data: doc });
-
+    // aquí devolvemos UN JSON plano con “data” para que tu front lo reciba igual
+    return res.json({
+      data: doc,
+      mensaje: 'Datos de la institución obtenidos correctamente.',
+      codigo: 200
+    });
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    console.error('getDatosEms error:', e);
+    res.status(500).json({ error: e.message });
   }
 };
