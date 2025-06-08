@@ -14,32 +14,40 @@ const buildReg = require('../lib/diacriticRegex');   // ← helper que ignora ti
 // ------------------------------------------------------------------
 exports.getDataOfertaEducativa = async (req, res) => {
   try {
-    const univ  = decodeURIComponent(req.params.universidad);
-    const datos2     = col('datos2');
-    const campForm   = col('camp_form');
+    const univ    = decodeURIComponent(req.params.universidad);
+    const datos2  = col('datos2');
+    const campForm= col('camp_form');
 
-    /* —— periodo más reciente —*/
-    const ultimo = await datos2
+    // 1) Periodo más reciente
+    const [ultimo] = await datos2
       .find({ NOMBRE_INSTITUCION: univ })
       .sort({ PERIODO: -1 })
       .limit(1)
       .toArray();
+    if (!ultimo) return res.status(404).json({ error: 'Sin datos para esa universidad.' });
 
-    if (!ultimo.length) {
-      return res.status(404).json({
-        error: 'No se encontraron registros para la universidad especificada.'
-      });
-    }
-
-    const periodo = ultimo[0].PERIODO;
-
-    /* —— filas de la oferta —*/
+    // 2) Filas de oferta
     const filas = await datos2
-      .find({ NOMBRE_INSTITUCION: univ, PERIODO: periodo })
+      .find({ NOMBRE_INSTITUCION: univ, PERIODO: ultimo.PERIODO })
       .sort({ MATRICULA: -1 })
       .toArray();
 
-    const total       = filas.reduce((t, f) => t + f.MATRICULA, 0);
+    const total = filas.reduce((sum, f) => sum + f.MATRICULA, 0);
+
+    // 3) Cargo **una sola vez** todos los colores
+    const coloresData = await campForm
+      .find({}, { projection: { _id:0, NOMBRE:1, R:1, G:1, B:1 } })
+      .toArray();
+
+    // Helper de normalización
+    const limpia = str =>
+      str
+        .normalize('NFD')               // descompone acentos
+        .replace(/[\u0300-\u036f]/g, '')// quita marcas de acento
+        .trim()
+        .replace(/["']/g, '')          // quita comillas
+        .toLowerCase();
+
     const etiquetas   = [];
     const porcentajes = [];
     const matriculas  = [];
@@ -50,19 +58,17 @@ exports.getDataOfertaEducativa = async (req, res) => {
       matriculas.push(f.MATRICULA);
       porcentajes.push(total ? +(f.MATRICULA * 100 / total).toFixed(2) : 0);
 
-      const color = await campForm.findOne(
-        { nombre: f.CAMPO_FORMACION.replace(/["']/g, '') },
-        { projection: { _id: 0, R: 1, G: 1, B: 1 } }
-      );
+      const buscado = limpia(f.CAMPO_FORMACION);
+      const match   = coloresData.find(c => limpia(c.NOMBRE) === buscado);
 
-      colores.push(
-        color
-          ? { R: +color.R, G: +color.G, B: +color.B }
-          : { R: 75, G: 192, B: 192 }   // color por defecto
-      );
+      if (match) {
+        colores.push({ R:+match.R, G:+match.G, B:+match.B });
+      } else {
+        colores.push({ R:75, G:192, B:192 });
+      }
     }
 
-    /* —— respuesta unificada —— */
+    // 4) Respondemos
     res.json({
       data: {
         etiquetas,
@@ -70,10 +76,9 @@ exports.getDataOfertaEducativa = async (req, res) => {
         matriculas,
         colores,
         total,
-        periodo
+        periodo: ultimo.PERIODO
       }
     });
-
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
