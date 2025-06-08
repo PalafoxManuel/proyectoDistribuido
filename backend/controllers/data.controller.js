@@ -90,55 +90,66 @@ exports.getDataOfertaEducativa = async (req, res) => {
 // ------------------------------------------------------------------
 exports.getHistoricoCamposFormacion = async (req, res) => {
   try {
-    const univ      = decodeURIComponent(req.params.universidad);
-    const datos2    = col('datos2');
-    const campForm  = col('camp_form');
+    const univ     = decodeURIComponent(req.params.universidad);
+    const datos2   = col('datos2');
+    const campForm = col('camp_form');
 
-    /* —— 1. Totales por campo (2018-2019 en adelante) ———————————— */
+    // 1️⃣ Agrego agregación para totales por campo
     const campos = await datos2.aggregate([
       { $match: { NOMBRE_INSTITUCION: univ, PERIODO: { $gte: '2018-2019' } } },
       { $group: { _id: '$CAMPO_FORMACION', total_matricula: { $sum: '$MATRICULA' } } },
-      { $sort : { total_matricula: -1 } }
+      { $sort: { total_matricula: -1 } }
     ]).toArray();
 
-    /* —— 2. Construir respuesta ———————————————————————— */
-    const data = [];
+    // 2️⃣ Cargo **todas** las entradas de camp_form de una sola vez
+    const coloresData = await campForm
+      .find({}, { projection: { _id: 0, NOMBRE: 1, R: 1, G: 1, B: 1 } })
+      .toArray();
+
+    // Helper para normalizar cadena
+    const limpia = str =>
+      str
+        .normalize('NFD')               // separar acentos
+        .replace(/[\u0300-\u036f]/g, '')// eliminar marcas de acento
+        .trim()
+        .replace(/["']/g, '')           // quitar comillas
+        .toLowerCase();
+
+    const resultado = [];
 
     for (const c of campos) {
-      const nombreCampo = c._id.replace(/["']/g, '');
+      // Limpio el nombre del campo para buscarlo
+      const nombreCampo = c._id;
+      const buscado     = limpia(nombreCampo);
 
-      // color del campo
-      const colorDoc = await campForm.findOne(
-        { nombre: nombreCampo },
-        { projection: { _id: 0, R: 1, G: 1, B: 1 } }
-      );
+      // Busco color en el array ya cargado
+      const match = coloresData.find(colDoc => limpia(colDoc.NOMBRE) === buscado);
 
-      const color = colorDoc
-        ? { R: +colorDoc.R, G: +colorDoc.G, B: +colorDoc.B }
-        : { R: 75, G: 192, B: 192 };      // color por defecto
+      const color = match
+        ? { R: +match.R, G: +match.G, B: +match.B }
+        : { R: 75, G: 192, B: 192 };
 
-      // serie histórica
+      // Serie histórica de ese campo
       const serie = await datos2
         .find({
           NOMBRE_INSTITUCION: univ,
-          CAMPO_FORMACION  : nombreCampo,
-          PERIODO          : { $gte: '2018-2019' }
+          CAMPO_FORMACION: nombreCampo,
+          PERIODO: { $gte: '2018-2019' }
         })
         .project({ _id: 0, PERIODO: 1, MATRICULA: 1 })
         .sort({ PERIODO: 1 })
         .toArray();
 
-      data.push({
-        campo_formacion : nombreCampo,
-        total_matricula : c.total_matricula,
+      resultado.push({
+        campo_formacion: nombreCampo,
+        total_matricula: c.total_matricula,
         color,
-        datos           : serie
+        datos: serie
       });
     }
 
-    /* —— 3. Respuesta uniforme —— */
-    res.json({ data });
-
+    // 3️⃣ Devuelvo el array listo para tu frontend
+    res.json({ data: resultado });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
